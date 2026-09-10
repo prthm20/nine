@@ -1,0 +1,144 @@
+// Local dev uses SQLite so the app runs with zero external setup.
+// For Supabase: change provider to "postgresql" and point DATABASE_URL at the
+// Supabase connection string. String-typed unions (plan, category, severity,
+// frequency, status) are kept as strings rather than enums so the schema is
+// portable across both providers.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  plan      String   @default("FREE") // FREE | PRO — PRO unlocks continuous monitoring
+  createdAt DateTime @default(now())
+
+  monitored MonitoredCompany[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?
+  country   String?
+  createdAt DateTime @default(now())
+
+  signals    Signal[]
+  snapshots  SignalSnapshot[]
+  riskScores RiskScore[]
+  monitors   MonitoredCompany[]
+}
+
+// One OSINT signal gathered by the dossier pipeline (news item, lawsuit,
+// breach record, filing anomaly, ...). Risk scoring reads these.
+model Signal {
+  id         String   @id @default(cuid())
+  companyId  String
+  category   String // financial | legal | reputational | cyber
+  type       String // litigation | negative_news | breach | filing_delay | ...
+  title      String
+  detail     String
+  sourceUrl  String
+  sentiment  Float // -1 (very negative) .. 1 (very positive)
+  severity   Float // 0 (noise) .. 1 (critical)
+  observedAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, category])
+}
+
+// Point-in-time fingerprint of a company's signal set; continuous monitoring
+// diffs the latest collection against the most recent snapshot.
+model SignalSnapshot {
+  id          String   @id @default(cuid())
+  companyId   String
+  takenAt     DateTime @default(now())
+  fingerprint String
+  payload     String // JSON: [{ key, category, type, title, severity }]
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, takenAt])
+}
+
+// ── Feature 1: Risk Scoring with Explainability ─────────────────────────────
+
+model RiskScore {
+  id                String   @id @default(cuid())
+  companyId         String
+  overallScore      Int // 0 (low risk) .. 100 (high risk)
+  financialScore    Int
+  legalScore        Int
+  reputationalScore Int
+  cyberScore        Int
+  explanations      String // JSON: { financial, legal, reputational, cyber } plain-English, citation-bearing
+  computedAt        DateTime @default(now())
+  modelVersion      String
+
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  factors RiskFactor[]
+
+  @@index([companyId, computedAt])
+}
+
+model RiskFactor {
+  id           String @id @default(cuid())
+  riskScoreId  String
+  category     String
+  label        String
+  weight       Float
+  evidenceText String
+  sourceUrl    String
+  sentiment    Float
+
+  riskScore RiskScore @relation(fields: [riskScoreId], references: [id], onDelete: Cascade)
+
+  @@index([riskScoreId])
+}
+
+// ── Feature 2: Continuous Monitoring ─────────────────────────────────────────
+
+model MonitoredCompany {
+  id            String    @id @default(cuid())
+  userId        String
+  companyId     String
+  frequency     String // daily | weekly
+  lastCheckedAt DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  // Per-subscriber notification watermarks. Signals and snapshots are shared
+  // per Company, but alerts are per subscriber: each one diffs the newest
+  // snapshot against the snapshot it was last notified up to, so a weekly
+  // subscriber still sees everything a daily subscriber already consumed.
+  lastSnapshotId    String?
+  lastNotifiedScore Int?
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  alerts  MonitoringAlert[]
+
+  @@unique([userId, companyId])
+}
+
+model MonitoringAlert {
+  id                 String   @id @default(cuid())
+  monitoredCompanyId String
+  changeType         String // new_signal | signal_escalation | score_change
+  summary            String
+  severity           String // low | medium | high
+  detectedAt         DateTime @default(now())
+  isRead             Boolean  @default(false)
+
+  monitoredCompany MonitoredCompany @relation(fields: [monitoredCompanyId], references: [id], onDelete: Cascade)
+
+  @@index([monitoredCompanyId, detectedAt])
+}

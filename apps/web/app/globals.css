@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────────────────────
+   Raw values live on :root (and are swapped wholesale for dark mode); the
+   @theme inline block below maps them onto Tailwind utilities, so a single
+   token edit reaches both `bg-surface` classes and any `var(--surface)` use. */
+
+:root {
+  --page: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f2f1ed;
+  --ink: #14140f;
+  --ink-2: #52514e;
+  --muted: #8b8983;
+  --hairline: #e3e2db;
+  --border: rgba(20, 20, 15, 0.12);
+  --accent: #1f6feb;
+  --accent-hover: #1a5fcc;
+  --accent-soft: rgba(31, 111, 235, 0.1);
+  --good: #12833a;
+  --warning: #b7791f;
+  --critical: #c2372f;
+  --focus: #1f6feb;
+
+  --shadow-card: 0 1px 2px rgba(20, 20, 15, 0.04), 0 1px 3px rgba(20, 20, 15, 0.06);
+  --shadow-pop: 0 4px 12px rgba(20, 20, 15, 0.08), 0 12px 32px rgba(20, 20, 15, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0c0c0b;
+    --surface: #161615;
+    --surface-2: #1f1f1d;
+    --ink: #f5f4f0;
+    --ink-2: #b9b7ae;
+    --muted: #86847d;
+    --hairline: #2b2b28;
+    --border: rgba(255, 255, 255, 0.14);
+    --accent: #4c8ff5;
+    --accent-hover: #6ba3f7;
+    --accent-soft: rgba(76, 143, 245, 0.16);
+    --good: #3fb765;
+    --warning: #e0a33c;
+    --critical: #e2645b;
+    --focus: #6ba3f7;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.55);
+  }
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-hairline: var(--hairline);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-critical: var(--critical);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv05", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One consistent focus treatment for every interactive element, instead of
+     the browser default that varies per control type. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer utilities {
+  /* Keeps long OSINT source URLs from blowing out their container. */
+  .break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
