@@ -9,6 +9,7 @@
     "build": "npm run build -w web",
     "typecheck": "npm run typecheck -w web",
     "db:migrate": "npm run db:migrate -w web",
+    "db:deploy": "npm run db:deploy -w web",
     "db:seed": "npm run db:seed -w web"
   }
 }

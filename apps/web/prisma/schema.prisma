@@ -1,16 +1,20 @@
-// Local dev uses SQLite so the app runs with zero external setup.
-// For Supabase: change provider to "postgresql" and point DATABASE_URL at the
-// Supabase connection string. String-typed unions (plan, category, severity,
-// frequency, status) are kept as strings rather than enums so the schema is
-// portable across both providers.
+// Postgres (Supabase) in every environment, so local dev and the deployed app
+// run the same dialect. Point DATABASE_URL at the Supabase connection string.
+// String-typed unions (plan, category, severity, frequency, status) are kept
+// as strings rather than enums, so the schema stays portable.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  // Pooled connection (Supabase pgbouncer, port 6543) — serverless opens many
+  // short-lived connections and would exhaust a direct pool.
+  url       = env("DATABASE_URL")
+  // Migrations cannot run through pgbouncer, so they use the direct
+  // connection (port 5432). Falls back to DATABASE_URL when unset.
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
