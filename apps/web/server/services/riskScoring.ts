@@ -74,44 +74,53 @@ function fallbackExplanation(category: RiskCategory, score: number, factors: Fac
   );
 }
 
+// One request per category, rather than a single request covering all four.
+//
+// Sending the whole dossier at once — an analyst system prompt plus every
+// adverse-media item about a named real company — is reliably rejected
+// upstream with an opaque 500, while each category on its own succeeds. The
+// split also keeps each response well clear of the token ceiling (a truncated
+// reply used to fail JSON parsing and silently drop ALL four categories to
+// templates) and isolates failures: one bad category no longer costs the rest.
+async function explainCategory(
+  category: RiskCategory,
+  score: number,
+  factors: FactorInput[]
+): Promise<string | null> {
+  const lines = factors
+    .map((f) => `- [${f.sourceUrl}] ${f.label}: ${f.evidenceText} (weight ${f.weight}, sentiment ${f.sentiment.toFixed(2)})`)
+    .join("\n");
+
+  const raw = await chatCompletion(
+    [
+      {
+        role: "system",
+        content:
+          "You are a risk analyst writing one section of a company risk dossier. " +
+          `Explain in 2-3 plain-English sentences why the ${category} score is what it is. ` +
+          "Every claim MUST cite the evidence that drove it by including its source URL in parentheses. " +
+          "Do not invent evidence beyond what is listed. " +
+          "Respond with the explanation prose only — no JSON, no headings, no preamble.",
+      },
+      { role: "user", content: `## ${category} (score ${score}/100)\n${lines || "- no signals"}` },
+    ],
+    700
+  );
+
+  return raw?.trim() || null;
+}
+
 async function generateExplanations(
   scores: Record<RiskCategory, number>,
   factorsByCategory: Record<RiskCategory, FactorInput[]>
 ): Promise<Explanations> {
-  const evidenceBlock = RISK_CATEGORIES.map((cat) => {
-    const lines = factorsByCategory[cat]
-      .map((f) => `- [${f.sourceUrl}] ${f.label}: ${f.evidenceText} (weight ${f.weight}, sentiment ${f.sentiment.toFixed(2)})`)
-      .join("\n");
-    return `## ${cat} (score ${scores[cat]}/100)\n${lines || "- no signals"}`;
-  }).join("\n\n");
-
-  const raw = await chatCompletion([
-    {
-      role: "system",
-      content:
-        "You are a risk analyst writing explanations for a company risk dossier. " +
-        "For each category, explain in 2-3 plain-English sentences why the score is what it is. " +
-        "Every claim MUST cite the specific evidence that drove it by including its source URL in parentheses. " +
-        "Do not invent evidence beyond what is listed. " +
-        'Respond with ONLY a JSON object: {"financial": "...", "legal": "...", "reputational": "...", "cyber": "..."}',
-    },
-    { role: "user", content: evidenceBlock },
-  ]);
-
-  if (raw) {
-    try {
-      const jsonText = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-      const parsed = JSON.parse(jsonText) as Partial<Explanations>;
-      const complete = RISK_CATEGORIES.every((c) => typeof parsed[c] === "string");
-      if (complete) return parsed as Explanations;
-    } catch {
-      // fall through to deterministic explanations
-    }
-  }
-
-  return Object.fromEntries(
-    RISK_CATEGORIES.map((c) => [c, fallbackExplanation(c, scores[c], factorsByCategory[c])])
-  ) as Explanations;
+  const entries = await Promise.all(
+    RISK_CATEGORIES.map(async (cat) => {
+      const ai = await explainCategory(cat, scores[cat], factorsByCategory[cat]);
+      return [cat, ai ?? fallbackExplanation(cat, scores[cat], factorsByCategory[cat])] as const;
+    })
+  );
+  return Object.fromEntries(entries) as Explanations;
 }
 
 export async function computeRiskScore(companyId: string) {
