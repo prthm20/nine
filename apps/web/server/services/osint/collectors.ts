@@ -233,7 +233,9 @@ async function edgarLateFilings(name: string, form: "NT 10-K" | "NT 10-Q"): Prom
   const edgarUrl =
     "https://efts.sec.gov/LATEST/search-index?" + new URLSearchParams({ q: `"${name}"`, forms: form });
   const edgar = await fetchJson<{ hits?: { hits?: EdgarHit[] } }>(edgarUrl, {
-    "User-Agent": process.env.SEC_EDGAR_USER_AGENT ?? "CompanyRiskDossier research demo@dossier.local",
+    // `||`, not `??`: an env var set to "" must fall back to a valid
+    // User-Agent rather than sending an empty header, which SEC rejects.
+    "User-Agent": process.env.SEC_EDGAR_USER_AGENT || "CompanyRiskDossier research demo@dossier.local",
   });
 
   return (edgar?.hits?.hits ?? []).slice(0, PER_SOURCE_LIMIT).map((hit) => {

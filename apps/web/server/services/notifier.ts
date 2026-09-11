@@ -60,7 +60,7 @@ export async function sendAlertEmail(
     return;
   }
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.APP_URL || "http://localhost:3000";
   try {
     const res = await fetch(RESEND_URL, {
       method: "POST",
@@ -69,7 +69,7 @@ export async function sendAlertEmail(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: process.env.ALERT_EMAIL_FROM ?? "alerts@dossier.local",
+        from: process.env.ALERT_EMAIL_FROM || "alerts@dossier.local",
         to: [user.email],
         subject: subjectFor(company, alerts),
         html: bodyFor(company, alerts, appUrl),

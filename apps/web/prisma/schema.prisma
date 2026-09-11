@@ -9,11 +9,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Pooled connection (Supabase pgbouncer, port 6543) — serverless opens many
-  // short-lived connections and would exhaust a direct pool.
+  // Pooled connection — serverless opens many short-lived connections and
+  // would exhaust a direct pool. Any Postgres works (Neon, Supabase, RDS).
   url       = env("DATABASE_URL")
-  // Migrations cannot run through pgbouncer, so they use the direct
-  // connection (port 5432). Falls back to DATABASE_URL when unset.
+  // Migrations cannot run through a connection pooler, so they use the
+  // direct (unpooled) connection. Both vars must be set.
   directUrl = env("DIRECT_URL")
 }
 

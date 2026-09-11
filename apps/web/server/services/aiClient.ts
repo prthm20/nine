@@ -16,7 +16,7 @@ export async function chatCompletion(messages: ChatMessage[]): Promise<string | 
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.AICREDITS_MODEL ?? "claude-sonnet-5",
+        model: process.env.AICREDITS_MODEL || "claude-sonnet-5",
         messages,
         temperature: 0.2,
         max_tokens: 1200,
